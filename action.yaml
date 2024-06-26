@@ -1,10 +1,16 @@
 name: 'Build and upload SaaS Connector'
+
 description: 'Builds and uploads a SaaS Connector to your Identity Security Cloud Tenant'
+
 inputs:
   node-version:
     description: 'Node.js version'
     required: false
     default: '18'
+  python-version:
+    description: 'Python version'
+    required: false
+    default: '3.10'
   cli-version:
     description: 'The version of the SailPoint CLI to use'
     required: false
@@ -21,8 +27,10 @@ inputs:
   client-secret:
     description: 'The client secret of the Identity Security Cloud Tenant'
     required: true
+
 runs:
   using: 'composite'
+
   steps:
     - name: Check Runner OS
       if: ${{ runner.os != 'Linux' }}
@@ -36,14 +44,19 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
     
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+    
     - name: Checkout Connector
       uses: actions/checkout@v2
-
+    
     - name: Download SailPoint CLI
       shell: bash
       run: |
         wget https://github.com/sailpoint-oss/sailpoint-cli/releases/download/${{ inputs.cli-version }}/sail_${{ inputs.cli-version }}_linux_amd64.deb
-
+    
     - name: Install SailPoint CLI
       shell: bash
       run: |
@@ -54,20 +67,46 @@ runs:
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
-
+    
+    - name: Install Node.js dependencies
+      shell: bash
+      run: |
+        if [ -f package.json ]; then
+          npm install
+        fi
+    
+    - name: Install Python dependencies
+      shell: bash
+      run: |
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+    
     - name: Build Connector
       shell: bash
       run: |
-        npm install
-        npm run pack-zip
+        if [ -f package.json ]; then
+          npm run pack-zip
+        elif [ -f setup.py ]; then
+          python setup.py sdist
+        fi
     
-    - name: Extract version from package.json
+    - name: Extract version from package.json or setup.py
       shell: bash
       run: |  
-        echo "PACKAGE_VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
-        echo "CONNECTOR_NAME=$(jq -r .name package.json)" >> $GITHUB_ENV
+        if [ -f package.json ]; then
+          echo "PACKAGE_VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
+          echo "CONNECTOR_NAME=$(jq -r .name package.json)" >> $GITHUB_ENV
+        elif [ -f setup.py ]; then
+          echo "PACKAGE_VERSION=$(python setup.py --version)" >> $GITHUB_ENV
+          echo "CONNECTOR_NAME=$(python setup.py --name)" >> $GITHUB_ENV
+        fi
     
     - name: Upload Connector to ISC
       shell: bash
       run: |
-        sail conn upload -c "${{ inputs.connector-alias }}" -f ./dist/${{ env.CONNECTOR_NAME }}-${{ env.PACKAGE_VERSION }}.zip
+        if [ -f dist/${{ env.CONNECTOR_NAME }}-${{ env.PACKAGE_VERSION }}.zip ]; then
+          sail conn upload -c "${{ inputs.connector-alias }}" -f ./dist/${{ env.CONNECTOR_NAME }}-${{ env.PACKAGE_VERSION }}.zip
+        elif [ -f dist/${{ env.CONNECTOR_NAME }}-${{ env.PACKAGE_VERSION }}.tar.gz ]; then
+          sail conn upload -c "${{ inputs.connector-alias }}" -f ./dist/${{ env.CONNECTOR_NAME }}-${{ env.PACKAGE_VERSION }}.tar.gz
+        fi
