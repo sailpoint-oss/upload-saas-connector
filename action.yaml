@@ -30,9 +30,9 @@ runs:
     - name: Download SailPoint CLI
       shell: bash
       run: |
-        wget https://github.com/sailpoint-oss/sailpoint-cli/releases/download/${{ input.cli-version }}/sail_${{ input.cli-version }}_linux_amd64.deb
+        wget https://github.com/sailpoint-oss/sailpoint-cli/releases/download/${{ inputs.cli-version }}/sail_${{ inputs.cli-version }}_linux_amd64.deb
 
     - name: Install SailPoint CLI
       shell: bash
       run: |
-        sudo dpkg -i sail_${{ input.cli-version }}_linux_amd64.deb
+        sudo dpkg -i sail_${{ inputs.cli-version }}_linux_amd64.deb
