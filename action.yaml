@@ -1,0 +1,38 @@
+name: 'Build and upload SaaS Connector'
+description: 'Builds and uploads a SaaS Connector to your Identity Security Cloud Tenant'
+inputs:
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '18'
+  cli-version:
+    description: 'The version of the SailPoint CLI to use'
+    required: false
+    default: 2.1.5
+runs:
+  using: 'composite'
+  steps:
+    - name: Check Runner OS
+      if: ${{ runner.os != 'Linux' }}
+      shell: bash
+      run: |
+        echo "::error title=⛔ error hint::Support Linux Only"
+        exit 1
+    
+    - name: Set up Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ inputs.node-version }}
+    
+    - name: Checkout Connector
+      uses: actions/checkout@v2
+
+    - name: Download SailPoint CLI
+      shell: bash
+      run: |
+        wget https://github.com/sailpoint-oss/sailpoint-cli/releases/download/${{ input.cli-version }}/sail_${{ input.cli-version }}_linux_amd64.deb
+
+    - name: Install SailPoint CLI
+      shell: bash
+      run: |
+        sudo dpkg -i sail_${{ input.cli-version }}_linux_amd64.deb
