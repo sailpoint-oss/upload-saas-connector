@@ -9,6 +9,18 @@ inputs:
     description: 'The version of the SailPoint CLI to use'
     required: false
     default: 2.1.5
+  connector-alias:
+    description: 'The alias of the connector to upload'
+    required: true
+  base-url: 
+    description: 'The base URL of the Identity Security Cloud Tenant'
+    required: true
+  client-id: 
+    description: 'The client ID of the Identity Security Cloud Tenant'
+    required: true
+  client-secret:
+    description: 'The client secret of the Identity Security Cloud Tenant'
+    required: true
 runs:
   using: 'composite'
   steps:
@@ -36,3 +48,26 @@ runs:
       shell: bash
       run: |
         sudo dpkg -i sail_${{ inputs.cli-version }}_linux_amd64.deb
+    
+    - name: Set GitHub Path
+      run: echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+
+    - name: Build Connector
+      shell: bash
+      run: |
+        npm install
+        npm run pack-zip
+    
+    - name: Extract version from package.json
+      shell: bash
+      run: |  
+        echo "PACKAGE_VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
+        echo "CONNECTOR_NAME=$(jq -r .name package.json)" >> $GITHUB_ENV
+    
+    - name: Upload Connector to ISC
+      shell: bash
+      run: |
+        sail conn upload -c "${{ inputs.connector-alias }}" -f ./dist/${{ env.CONNECTOR_NAME }}-${{ env.PACKAGE_VERSION }}.zip
